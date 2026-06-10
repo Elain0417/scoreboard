@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Scoreboard & Timer</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/tabler-icons.min.css"/>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:system-ui,-apple-system,sans-serif;background:#f5f5f3;color:#1a1a18;min-height:100vh;padding:1.5rem 1rem;}
+  .container{max-width:700px;margin:0 auto;}
+  .card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:12px;padding:1rem 1.25rem;}
+  .section-label{font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.07em;margin:0 0 8px;}
+  .score-num{font-size:52px;font-weight:500;line-height:1;margin:6px 0;}
+  .name-inp{background:transparent;border:none;border-bottom:1px solid #ccc;color:#1a1a18;font-size:13px;text-align:center;width:100%;outline:none;padding:2px 0;}
+  .icobtn{width:34px;height:34px;border-radius:8px;border:1px solid #ccc;background:#f5f5f3;color:#1a1a18;font-size:18px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;}
+  .icobtn:hover{background:#e8e8e4;}
+  .icobtn:active{transform:scale(.96);}
+  .tbtn{padding:8px 20px;border-radius:8px;border:1px solid #ccc;background:#f5f5f3;color:#1a1a18;font-size:14px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;}
+  .tbtn:hover{background:#e8e8e4;}
+  .tbtn:active{transform:scale(.98);}
+  .tbtn.go{background:#d1fae5;color:#065f46;border-color:#6ee7b7;}
+  .tbtn.sel{border-color:#1a1a18;}
+  .timer-big{font-size:64px;font-weight:500;letter-spacing:2px;font-variant-numeric:tabular-nums;text-align:center;color:#1a1a18;}
+  .dot{width:9px;height:9px;border-radius:50%;background:#ddd;display:inline-block;margin:0 2px;transition:background .15s;}
+  .dot.hit{background:#E24B4A;}
+  .rank-row{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;}
+  .rank-row.r1{background:#fef3c7;}
+  .rank-row.r2{background:#f3f4f6;}
+  .rank-row.r3{background:#fef0e0;}
+  .rank-badge{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:500;flex-shrink:0;}
+  .settings-panel{background:#f9f9f7;border:1px solid rgba(0,0,0,.08);border-radius:12px;padding:1rem;margin-bottom:1rem;}
+  hr.div{border:none;border-top:1px solid rgba(0,0,0,.08);margin:1rem 0;}
+  input[type=range]{accent-color:#1a1a18;}
+  input[type=number]{border:1px solid #ccc;border-radius:6px;padding:3px 8px;font-size:13px;color:#1a1a18;background:#fff;outline:none;}
+  input[type=text]{border:1px solid #ccc;border-radius:6px;padding:6px 10px;font-size:13px;color:#1a1a18;background:#fff;outline:none;width:100%;}
+  @media(max-width:480px){.score-num{font-size:38px;}.timer-big{font-size:48px;}}
+</style>
+</head>
+<body>
+<div class="container">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;">
+    <span style="font-size:16px;font-weight:500;">scoreboard</span>
+    <button class="icobtn" onclick="toggleSettings()" aria-label="settings"><i class="ti ti-menu-2"></i></button>
+  </div>
+  <div id="settingsPanel" style="display:none;">
+    <div class="settings-panel">
+      <p class="section-label">timer settings</p>
+      <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:12px;">
+        <label style="font-size:13px;color:#666;">duration</label>
+        <input type="range" min="1" max="10" value="1" step="1" id="durSlider" style="width:100px;" oninput="document.getElementById('durOut').textContent=this.value+'m';if(!running){remaining=this.value*60;renderTimer();renderDots();}"/>
+        <span style="font-size:13px;font-weight:500;" id="durOut">1m</span>
+        <label style="font-size:13px;color:#666;margin-left:8px;">beep every</label>
+        <input type="range" min="5" max="30" value="10" step="5" id="beepSlider" style="width:100px;" oninput="document.getElementById('beepOut').textContent=this.value+'s';renderDots();"/>
+        <span style="font-size:13px;font-weight:500;" id="beepOut">10s</span>
+      </div>
+      <p class="section-label">beep sound</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;" id="soundBtns"></div>
+      <p class="section-label">score step</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px;" id="stepBtns"></div>
+      <p style="font-size:11px;color:#999;margin:6px 0 12px;">or custom: <input type="number" id="customStep" min="1" max="999" value="" placeholder="e.g. 5" style="width:70px;" oninput="setStep(parseInt(this.value)||1,'custom')"/></p>
+      <hr class="div" style="margin:.5rem 0;">
+      <p class="section-label">teams</p>
+      <div id="teamSettingsList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;"></div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input type="text" id="newTeamName" placeholder="new team name" style="flex:1;" maxlength="20"/>
+        <button class="tbtn" onclick="addTeam()" style="padding:6px 14px;font-size:13px;white-space:nowrap;"><i class="ti ti-plus"></i> add</button>
+      </div>
+    </div>
+  </div>
+  <div id="scoreGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:1rem;"></div>
+  <hr class="div">
+  <div class="timer-big" id="timerDisplay">1:00</div>
+  <div style="text-align:center;margin:6px 0 12px;min-height:14px;" id="dotRow"></div>
+  <div style="display:flex;justify-content:center;gap:8px;">
+    <button class="tbtn go" id="startBtn" onclick="startTimer()"><i class="ti ti-player-play"></i> start</button>
+    <button class="tbtn" id="pauseBtn" style="display:none;" onclick="pauseTimer()"><i class="ti ti-player-pause"></i> pause</button>
+    <button class="tbtn" onclick="resetTimer()"><i class="ti ti-refresh"></i> reset</button>
+  </div>
+  <p id="statusMsg" style="text-align:center;font-size:13px;color:#666;margin-top:8px;min-height:18px;"></p>
+  <hr class="div">
+  <p class="section-label">live ranking</p>
+  <div id="rankList" style="display:flex;flex-direction:column;gap:4px;"></div>
+</div>
+<script>
+let teams=[{name:'Team A',score:0},{name:'Team B',score:0},{name:'Team C',score:0}];
+let scoreStep=1,selectedSound='beep',running=false,remaining=60,ticker,audioCtx;
+const sounds={beep:{type:'sine',freq:880,dur:.3},buzz:{type:'square',freq:220,dur:.25},ding:{type:'triangle',freq:1200,dur:.4},blip:{type:'sawtooth',freq:440,dur:.15},horn:{type:'square',freq:330,dur:.5}};
+const endSounds={beep:{freqs:[880,880,880],type:'sine'},buzz:{freqs:[220,220,220],type:'square'},ding:{freqs:[1200,1400,1600],type:'triangle'},blip:{freqs:[440,550,660],type:'sawtooth'},horn:{freqs:[330,330,330],type:'square'}};
+const steps=[1,2,3,5,10];
+const medalBg=['#fef3c7','#f3f4f6','#fef0e0'];
+const medalColors=['#92400e','#4b5563','#7c4a0f'];
+function initAudio(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();}
+function playBeep(end){
+  try{
+    initAudio();
+    const s=sounds[selectedSound],es=endSounds[selectedSound];
+    if(end){es.freqs.forEach((f,i)=>{const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.connect(g);g.connect(audioCtx.destination);o.type=es.type;o.frequency.value=f;const t=audioCtx.currentTime+i*.28;g.gain.setValueAtTime(.6,t);g.gain.exponentialRampToValueAtTime(.001,t+.28);o.start(t);o.stop(t+.28);});}
+    else{const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.connect(g);g.connect(audioCtx.destination);o.type=s.type;o.frequency.value=s.freq;g.gain.setValueAtTime(.55,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+s.dur);o.start();o.stop(audioCtx.currentTime+s.dur);}
+  }catch(e){}
+}
+function setStep(v,src){scoreStep=v;document.querySelectorAll('#stepBtns button').forEach(b=>{b.classList.toggle('sel',b.dataset.v==v&&src!='custom');});if(src!='custom')document.getElementById('customStep').value='';}
+function renderSoundBtns(){const c=document.getElementById('soundBtns');c.innerHTML='';Object.keys(sounds).forEach(k=>{const b=document.createElement('button');b.className='tbtn'+(k===selectedSound?' sel':'');b.style.cssText='font-size:13px;padding:5px 14px;';b.textContent=k;b.onclick=()=>{selectedSound=k;renderSoundBtns();playBeep(false);};c.appendChild(b);});}
+function renderStepBtns(){const c=document.getElementById('stepBtns');c.innerHTML='';steps.forEach(v=>{const b=document.createElement('button');b.className='tbtn'+(v===scoreStep?' sel':'');b.style.cssText='font-size:13px;padding:5px 14px;';b.textContent='+'+v;b.dataset.v=v;b.onclick=()=>setStep(v,'btn');c.appendChild(b);});}
+function renderTeamSettings(){const c=document.getElementById('teamSettingsList');c.innerHTML='';teams.forEach((t,i)=>{const row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:8px;';row.innerHTML=`<input type="text" value="${t.name}" maxlength="20" style="flex:1;font-size:13px;" oninput="teams[${i}].name=this.value;renderScoreCards();renderRanking();"/><button class="icobtn" style="width:28px;height:28px;font-size:15px;" onclick="removeTeam(${i})" aria-label="remove"><i class="ti ti-trash"></i></button>`;c.appendChild(row);});}
+function addTeam(){const inp=document.getElementById('newTeamName');const name=inp.value.trim()||'Team '+(teams.length+1);teams.push({name,score:0});inp.value='';renderScoreCards();renderTeamSettings();renderRanking();}
+function removeTeam(i){if(teams.length<=1)return;teams.splice(i,1);renderScoreCards();renderTeamSettings();renderRanking();}
+function addScore(i,dir){teams[i].score=Math.max(0,teams[i].score+dir*scoreStep);document.getElementById('snum-'+i).textContent=teams[i].score;renderRanking();}
+function renderScoreCards(){const g=document.getElementById('scoreGrid');g.innerHTML='';teams.forEach((t,i)=>{const d=document.createElement('div');d.className='card';d.style.textAlign='center';d.innerHTML=`<input class="name-inp" value="${t.name}" maxlength="20" oninput="teams[${i}].name=this.value;renderTeamSettings();renderRanking();"/><div class="score-num" id="snum-${i}">${t.score}</div><div style="display:flex;justify-content:center;gap:6px;margin-top:8px;"><button class="icobtn" onclick="addScore(${i},-1)">−</button><button class="icobtn" onclick="addScore(${i},1)">+</button></div>`;g.appendChild(d);});}
+function renderRanking(){const sorted=[...teams].map((t,i)=>({...t,orig:i})).sort((a,b)=>b.score-a.score);const c=document.getElementById('rankList');c.innerHTML='';sorted.forEach((t,rank)=>{const row=document.createElement('div');row.className='rank-row'+(rank<3?' r'+(rank+1):'');const badge=rank<3?`<div class="rank-badge" style="background:${medalBg[rank]};color:${medalColors[rank]};">${rank+1}</div>`:`<div class="rank-badge" style="background:#f3f4f6;color:#999;font-size:12px;">${rank+1}</div>`;row.innerHTML=`${badge}<span style="flex:1;font-size:14px;">${t.name}</span><span style="font-size:16px;font-weight:500;">${t.score}</span>`;c.appendChild(row);});}
+function getDur(){return parseInt(document.getElementById('durSlider').value)*60;}
+function getBeep(){return parseInt(document.getElementById('beepSlider').value);}
+function renderTimer(){const m=Math.floor(remaining/60),s=remaining%60;document.getElementById('timerDisplay').textContent=m+':'+(s<10?'0':'')+s;}
+function renderDots(){const total=getDur(),interval=getBeep(),n=Math.floor(total/interval),elapsed=total-remaining;let h='';for(let i=0;i<n;i++)h+=`<span class="dot${elapsed>0&&i<Math.floor(elapsed/interval)?' hit':''}"></span>`;document.getElementById('dotRow').innerHTML=h;}
+function startTimer(){if(running)return;initAudio();if(remaining<=0)remaining=getDur();running=true;document.getElementById('startBtn').style.display='none';document.getElementById('pauseBtn').style.display='inline-flex';document.getElementById('statusMsg').textContent='';ticker=setInterval(()=>{remaining--;renderTimer();renderDots();const elapsed=getDur()-remaining,interval=getBeep();if(elapsed>0&&elapsed%interval===0&&remaining>0)playBeep(false);if(remaining<=0){clearInterval(ticker);running=false;document.getElementById('startBtn').style.display='inline-flex';document.getElementById('pauseBtn').style.display='none';document.getElementById('statusMsg').textContent="time's up!";playBeep(true);}},1000);}
+function pauseTimer(){clearInterval(ticker);running=false;document.getElementById('startBtn').style.display='inline-flex';document.getElementById('pauseBtn').style.display='none';document.getElementById('statusMsg').textContent='paused';}
+function resetTimer(){clearInterval(ticker);running=false;remaining=getDur();renderTimer();renderDots();document.getElementById('startBtn').style.display='inline-flex';document.getElementById('pauseBtn').style.display='none';document.getElementById('statusMsg').textContent='';}
+function toggleSettings(){const p=document.getElementById('settingsPanel');p.style.display=p.style.display==='none'?'block':'none';renderTeamSettings();}
+renderSoundBtns();renderStepBtns();renderScoreCards();renderRanking();renderTimer();renderDots();
+</script>
+</body>
+</html>
