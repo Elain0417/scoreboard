@@ -19,6 +19,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#f5f5f3;color:#1a
 .btn.primary{background:#d1fae5;color:#065f46;border-color:#6ee7b7;}
 .btn.danger{background:#fee2e2;color:#991b1b;border-color:#fca5a5;}
 .btn.sel{border-color:#1a1a18;background:#e4e3de;}
+.btn:disabled{opacity:.4;cursor:not-allowed;}
 .name-inp{background:transparent;border:none;border-bottom:1px solid #ccc;color:#1a1a18;font-size:13px;text-align:center;width:100%;outline:none;padding:2px 0;}
 .name-inp:focus{border-bottom-color:#1a1a18;}
 .timer-disp{font-size:68px;font-weight:500;letter-spacing:3px;font-variant-numeric:tabular-nums;text-align:center;color:#1a1a18;transition:color .3s;}
@@ -57,108 +58,295 @@ hr.div{border:none;border-top:1px solid rgba(0,0,0,.08);margin:1rem 0;}
 .winner-name{animation:popIn .5s ease forwards;}
 .trophy{font-size:48px;animation:pulse 1.5s ease infinite;color:#f59e0b;}
 .sub-section{border-top:1px solid rgba(0,0,0,.07);margin-top:6px;padding-top:6px;}
-input[type=text],input[type=number]{font-family:inherit;}
+input[type=text],input[type=number],textarea{font-family:inherit;}
+textarea.list-inp{width:100%;min-height:160px;font-size:14px;padding:10px 12px;border:1px solid #ccc;border-radius:8px;background:#fff;color:#1a1a18;outline:none;resize:vertical;line-height:1.5;}
+.page{display:none;}
+.page.active{display:block;}
+.step-title{font-size:20px;font-weight:600;margin-bottom:4px;}
+.step-sub{font-size:13px;color:#666;margin-bottom:1.25rem;}
+.member-chip{display:inline-block;background:#eef0ee;color:#444;font-size:12px;padding:3px 9px;border-radius:20px;margin:2px;}
+.group-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:12px;padding:1rem;margin-bottom:10px;}
+.group-card h4{font-size:14px;font-weight:600;margin-bottom:8px;color:#1a1a18;}
+.naming-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.naming-row .grp-label{font-size:13px;color:#666;min-width:70px;}
+.naming-row input{flex:1;font-size:14px;padding:8px 10px;border:1px solid #ccc;border-radius:8px;background:#fff;color:#1a1a18;outline:none;}
+.top-nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;}
+.back-link{font-size:13px;color:#666;cursor:pointer;display:inline-flex;align-items:center;gap:4px;background:none;border:none;padding:0;}
+.back-link:hover{color:#1a1a18;}
 @media(max-width:500px){.score-main{font-size:36px;}.timer-disp{font-size:52px;}}
 </style>
 </head>
 <body>
 <div class="container">
 
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;">
-    <span style="font-size:16px;font-weight:500;">scoreboard</span>
-    <div style="display:flex;gap:6px;">
-      <button class="icobtn" onclick="askReset()" title="reset all scores"><i class="ti ti-refresh"></i></button>
-      <button class="btn sel" id="settingsToggle" onclick="toggleSettings()" style="padding:7px 14px;font-size:13px;"><i class="ti ti-settings"></i> settings</button>
+  <!-- ════════════════ PAGE 1 — LIST ENTRY ════════════════ -->
+  <div class="page active" id="page-list">
+    <p class="step-title">Enter your list</p>
+    <p class="step-sub">Paste names below — one per line, or separated by commas. We'll split everyone into balanced groups.</p>
+    <textarea class="list-inp" id="namesInput" placeholder="Stephane Porquier&#10;Elson Lee&#10;Jian Jia Alvin Tan&#10;Marcus Ng&#10;..."></textarea>
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:14px;">
+      <label style="font-size:13px;color:#666;">number of groups</label>
+      <input type="number" id="groupCountInp" min="2" max="20" value="5" style="width:64px;font-size:14px;padding:7px 9px;border:1px solid #ccc;border-radius:8px;background:#fff;color:#1a1a18;outline:none;"/>
+      <span id="listCountPreview" style="font-size:12px;color:#999;"></span>
+    </div>
+    <p id="listError" style="font-size:12px;color:#dc2626;margin-top:8px;display:none;"></p>
+    <div style="margin-top:18px;">
+      <button class="btn primary" onclick="goToGrouping()"><i class="ti ti-arrow-right"></i> go</button>
     </div>
   </div>
 
-  <div id="settingsPanel" style="display:none;">
-    <div class="settings-wrap">
+  <!-- ════════════════ PAGE 2 — GROUPING RESULT ════════════════ -->
+  <div class="page" id="page-grouping">
+    <div class="top-nav">
+      <button class="back-link" onclick="showPage('page-list')"><i class="ti ti-arrow-left"></i> back to list</button>
+    </div>
+    <p class="step-title">Groups</p>
+    <p class="step-sub">Randomly split into balanced groups. Don't like the split? Re-shuffle as many times as you want.</p>
+    <div id="groupingResult"></div>
+    <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
+      <button class="btn" onclick="shuffleGroups()"><i class="ti ti-refresh"></i> re-shuffle</button>
+      <button class="btn primary" onclick="goToNaming()"><i class="ti ti-arrow-right"></i> confirm groups</button>
+    </div>
+  </div>
 
-      <div style="margin-bottom:14px;">
-        <p class="lbl">timer duration</p>
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-          <input class="time-inp" type="number" id="timeVal" min="1" max="999" value="1" oninput="onTimeChange()"/>
-          <select class="unit-sel" id="timeUnit" onchange="onTimeChange()">
-            <option value="60">minutes</option>
-            <option value="1">seconds</option>
-            <option value="3600">hours</option>
-          </select>
-          <span style="font-size:12px;color:#999;" id="timePreview">= 1:00</span>
-        </div>
+  <!-- ════════════════ PAGE 3 — TEAM NAMING ════════════════ -->
+  <div class="page" id="page-naming">
+    <div class="top-nav">
+      <button class="back-link" onclick="showPage('page-grouping')"><i class="ti ti-arrow-left"></i> back to groups</button>
+    </div>
+    <p class="step-title">Name your teams</p>
+    <p class="step-sub">Each group picks a team name. One person types it in below.</p>
+    <div id="namingForm"></div>
+    <div style="margin-top:14px;">
+      <button class="btn primary" onclick="goToScoreboard()"><i class="ti ti-arrow-right"></i> start scoreboard</button>
+    </div>
+  </div>
+
+  <!-- ════════════════ PAGE 4 — SCOREBOARD (existing) ════════════════ -->
+  <div class="page" id="page-scoreboard">
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;">
+      <span style="font-size:16px;font-weight:500;">scoreboard</span>
+      <div style="display:flex;gap:6px;">
+        <button class="icobtn" onclick="askReset()" title="reset all scores"><i class="ti ti-refresh"></i></button>
+        <button class="btn sel" id="settingsToggle" onclick="toggleSettings()" style="padding:7px 14px;font-size:13px;"><i class="ti ti-settings"></i> settings</button>
       </div>
+    </div>
 
-      <div style="margin-bottom:14px;">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-          <p class="lbl" style="margin:0;">beep interval</p>
-          <div class="toggle-track on" id="beepToggleTrack" onclick="toggleBeep()"><div class="toggle-thumb"></div></div>
-          <span style="font-size:12px;color:#555;" id="beepToggleLabel">on</span>
-        </div>
-        <div id="beepSettings" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-          <input class="beep-inp" type="number" id="beepValInp" min="1" max="300" value="10" oninput="onBeepChange()"/>
-          <span style="font-size:13px;color:#666;">seconds</span>
-          <span style="font-size:12px;color:#999;" id="beepPreview">beeps 6×</span>
-        </div>
-      </div>
+    <div id="settingsPanel" style="display:none;">
+      <div class="settings-wrap">
 
-      <div style="margin-bottom:14px;">
-        <p class="lbl">beep sound</p>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;" id="soundBtns"></div>
-      </div>
-
-      <div style="margin-bottom:14px;">
-        <p class="lbl">score step</p>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
-          <div style="display:flex;gap:6px;flex-wrap:wrap;" id="stepBtns"></div>
-          <input type="number" id="customStep" min="1" max="9999" placeholder="custom" style="width:75px;font-size:13px;padding:5px 8px;border:1px solid #ccc;border-radius:8px;background:#fff;color:#1a1a18;outline:none;" oninput="setStep(parseInt(this.value)||1,'c')"/>
+        <div style="margin-bottom:14px;">
+          <button class="btn" onclick="showPage('page-naming')" style="font-size:13px;padding:7px 14px;"><i class="ti ti-users"></i> edit teams / rename</button>
         </div>
-      </div>
 
-      <div style="margin-bottom:14px;">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
-          <p class="lbl" style="margin:0;">sub-points</p>
-          <div class="toggle-track" id="subToggleTrack" onclick="toggleSubPoints()"><div class="toggle-thumb"></div></div>
-          <span style="font-size:12px;color:#555;" id="subToggleLabel">off</span>
-        </div>
-        <div id="subSettings" style="display:none;">
-          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px;">
-            <span style="font-size:13px;color:#666;">sub-rows per team</span>
-            <input type="number" id="subCountInp" min="1" max="6" value="3" style="width:55px;font-size:13px;padding:5px 8px;border:1px solid #ccc;border-radius:8px;background:#fff;color:#1a1a18;outline:none;" oninput="onSubCountChange()"/>
+        <div style="margin-bottom:14px;">
+          <p class="lbl">timer duration</p>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <input class="time-inp" type="number" id="timeVal" min="1" max="999" value="1" oninput="onTimeChange()"/>
+            <select class="unit-sel" id="timeUnit" onchange="onTimeChange()">
+              <option value="60">minutes</option>
+              <option value="1">seconds</option>
+              <option value="3600">hours</option>
+            </select>
+            <span style="font-size:12px;color:#999;" id="timePreview">= 1:00</span>
           </div>
-          <p style="font-size:11px;color:#999;">e.g. 3 pairs per team → set 3. sub-point totals auto-add to main score.</p>
+        </div>
+
+        <div style="margin-bottom:14px;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+            <p class="lbl" style="margin:0;">beep interval</p>
+            <div class="toggle-track on" id="beepToggleTrack" onclick="toggleBeep()"><div class="toggle-thumb"></div></div>
+            <span style="font-size:12px;color:#555;" id="beepToggleLabel">on</span>
+          </div>
+          <div id="beepSettings" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <input class="beep-inp" type="number" id="beepValInp" min="1" max="300" value="10" oninput="onBeepChange()"/>
+            <span style="font-size:13px;color:#666;">seconds</span>
+            <span style="font-size:12px;color:#999;" id="beepPreview">beeps 6×</span>
+          </div>
+        </div>
+
+        <div style="margin-bottom:14px;">
+          <p class="lbl">beep sound</p>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;" id="soundBtns"></div>
+        </div>
+
+        <div style="margin-bottom:14px;">
+          <p class="lbl">score step</p>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+            <div style="display:flex;gap:6px;flex-wrap:wrap;" id="stepBtns"></div>
+            <input type="number" id="customStep" min="1" max="9999" placeholder="custom" style="width:75px;font-size:13px;padding:5px 8px;border:1px solid #ccc;border-radius:8px;background:#fff;color:#1a1a18;outline:none;" oninput="setStep(parseInt(this.value)||1,'c')"/>
+          </div>
+        </div>
+
+        <div style="margin-bottom:14px;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+            <p class="lbl" style="margin:0;">sub-points</p>
+            <div class="toggle-track" id="subToggleTrack" onclick="toggleSubPoints()"><div class="toggle-thumb"></div></div>
+            <span style="font-size:12px;color:#555;" id="subToggleLabel">off</span>
+          </div>
+          <div id="subSettings" style="display:none;">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px;">
+              <span style="font-size:13px;color:#666;">sub-rows per team</span>
+              <input type="number" id="subCountInp" min="1" max="6" value="3" style="width:55px;font-size:13px;padding:5px 8px;border:1px solid #ccc;border-radius:8px;background:#fff;color:#1a1a18;outline:none;" oninput="onSubCountChange()"/>
+            </div>
+            <p style="font-size:11px;color:#999;">e.g. 3 pairs per team → set 3. sub-point totals auto-add to main score.</p>
+          </div>
+        </div>
+
+        <hr class="div" style="margin:.75rem 0;">
+        <p class="lbl">manage teams</p>
+        <div id="teamMgmt" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;"></div>
+        <div style="display:flex;gap:8px;">
+          <input type="text" id="newTeamInp" placeholder="new team name…" maxlength="24" style="flex:1;font-size:13px;padding:7px 10px;border:1px solid #ccc;border-radius:8px;background:#fff;color:#1a1a18;outline:none;"/>
+          <button class="btn" onclick="addTeam()" style="white-space:nowrap;font-size:13px;padding:7px 14px;"><i class="ti ti-plus"></i> add</button>
         </div>
       </div>
-
-      <hr class="div" style="margin:.75rem 0;">
-      <p class="lbl">manage teams</p>
-      <div id="teamMgmt" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;"></div>
-      <div style="display:flex;gap:8px;">
-        <input type="text" id="newTeamInp" placeholder="new team name…" maxlength="24" style="flex:1;font-size:13px;padding:7px 10px;border:1px solid #ccc;border-radius:8px;background:#fff;color:#1a1a18;outline:none;"/>
-        <button class="btn" onclick="addTeam()" style="white-space:nowrap;font-size:13px;padding:7px 14px;"><i class="ti ti-plus"></i> add</button>
-      </div>
     </div>
+
+    <div id="scoreGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:1rem;"></div>
+
+    <hr class="div">
+
+    <div class="timer-disp" id="timerDisp">1:00</div>
+    <div style="text-align:center;margin:6px 0 12px;min-height:14px;" id="dotRow"></div>
+    <div style="display:flex;justify-content:center;gap:8px;flex-wrap:wrap;">
+      <button class="btn primary" id="startBtn" onclick="startTimer()"><i class="ti ti-player-play"></i> start</button>
+      <button class="btn" id="pauseBtn" style="display:none;" onclick="pauseTimer()"><i class="ti ti-player-pause"></i> pause</button>
+      <button class="btn" onclick="resetTimer()"><i class="ti ti-refresh"></i> reset</button>
+    </div>
+    <p id="statusMsg" style="text-align:center;font-size:13px;color:#666;margin-top:8px;min-height:18px;"></p>
+
+    <hr class="div">
+    <p class="lbl">live ranking</p>
+    <div id="rankList" style="display:flex;flex-direction:column;gap:4px;"></div>
+    <div id="modalArea"></div>
+
   </div>
-
-  <div id="scoreGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:1rem;"></div>
-
-  <hr class="div">
-
-  <div class="timer-disp" id="timerDisp">1:00</div>
-  <div style="text-align:center;margin:6px 0 12px;min-height:14px;" id="dotRow"></div>
-  <div style="display:flex;justify-content:center;gap:8px;flex-wrap:wrap;">
-    <button class="btn primary" id="startBtn" onclick="startTimer()"><i class="ti ti-player-play"></i> start</button>
-    <button class="btn" id="pauseBtn" style="display:none;" onclick="pauseTimer()"><i class="ti ti-player-pause"></i> pause</button>
-    <button class="btn" onclick="resetTimer()"><i class="ti ti-refresh"></i> reset</button>
-  </div>
-  <p id="statusMsg" style="text-align:center;font-size:13px;color:#666;margin-top:8px;min-height:18px;"></p>
-
-  <hr class="div">
-  <p class="lbl">live ranking</p>
-  <div id="rankList" style="display:flex;flex-direction:column;gap:4px;"></div>
-  <div id="modalArea"></div>
 
 </div>
 <script>
+/* ═══════════════════════ PAGE NAVIGATION ═══════════════════════ */
+function showPage(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+/* ═══════════════════════ SETUP FLOW STATE ═══════════════════════ */
+let rawNames=[];
+let groupCount=5;
+let groups=[]; // array of arrays of names
+
+function parseNames(text){
+  // auto-detect: split on commas if commas present and few/no newlines, else split on newlines
+  text=text.trim();
+  if(!text)return[];
+  let parts;
+  if(text.includes(',') && !text.includes('\n')){
+    parts=text.split(',');
+  } else if(text.includes(',') && text.split('\n').length<2){
+    parts=text.split(',');
+  } else {
+    parts=text.split('\n');
+  }
+  return parts.map(s=>s.trim()).filter(Boolean);
+}
+
+document.getElementById('namesInput').addEventListener('input',()=>{
+  const n=parseNames(document.getElementById('namesInput').value);
+  document.getElementById('listCountPreview').textContent=n.length>0?(n.length+' people detected'):'';
+});
+
+function shuffle(arr){
+  const a=[...arr];
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+
+function buildGroups(){
+  const shuffled=shuffle(rawNames);
+  groups=Array.from({length:groupCount},()=>[]);
+  shuffled.forEach((name,i)=>{
+    groups[i%groupCount].push(name);
+  });
+}
+
+function goToGrouping(){
+  const errEl=document.getElementById('listError');
+  rawNames=parseNames(document.getElementById('namesInput').value);
+  groupCount=Math.max(2,Math.min(20,parseInt(document.getElementById('groupCountInp').value)||5));
+
+  if(rawNames.length<groupCount){
+    errEl.textContent='You need at least '+groupCount+' people for '+groupCount+' groups. You entered '+rawNames.length+'.';
+    errEl.style.display='block';
+    return;
+  }
+  errEl.style.display='none';
+  buildGroups();
+  renderGrouping();
+  showPage('page-grouping');
+}
+
+function shuffleGroups(){
+  buildGroups();
+  renderGrouping();
+}
+
+function renderGrouping(){
+  const c=document.getElementById('groupingResult');
+  c.innerHTML='';
+  groups.forEach((members,i)=>{
+    const card=document.createElement('div');
+    card.className='group-card';
+    card.innerHTML=`<h4>Group ${i+1} <span style="color:#999;font-weight:400;font-size:12px;">(${members.length} people)</span></h4>
+      <div>${members.map(m=>`<span class="member-chip">${m}</span>`).join('')}</div>`;
+    c.appendChild(card);
+  });
+}
+
+function goToNaming(){
+  renderNamingForm();
+  showPage('page-naming');
+}
+
+function renderNamingForm(){
+  const c=document.getElementById('namingForm');
+  c.innerHTML='';
+  groups.forEach((members,i)=>{
+    const row=document.createElement('div');
+    row.className='naming-row';
+    const existing = (teams[i] && teams[i].customMembers) ? teams[i].name : ('Group '+(i+1));
+    row.innerHTML=`<span class="grp-label">Group ${i+1}</span>
+      <input type="text" id="teamNameInp-${i}" placeholder="enter team name…" maxlength="28" value="${(teams[i]&&teams[i].name&&teams[i].name!=='Group '+(i+1))?teams[i].name:''}"/>`;
+    c.appendChild(row);
+  });
+  const hint=document.createElement('p');
+  hint.style.cssText='font-size:11px;color:#999;margin-top:6px;';
+  hint.textContent='Leave blank to keep "Group N" as the name.';
+  c.appendChild(hint);
+}
+
+function goToScoreboard(){
+  teams=groups.map((members,i)=>{
+    const inp=document.getElementById('teamNameInp-'+i);
+    const typed=inp&&inp.value.trim();
+    return {
+      name: typed || ('Group '+(i+1)),
+      score:0,
+      subs:Array(subCount).fill(0),
+      members:members,
+      customMembers:true
+    };
+  });
+  renderScoreCards();renderRanking();renderTeamMgmt();
+  showPage('page-scoreboard');
+}
+
+/* ═══════════════════════ SCOREBOARD (existing logic) ═══════════════════════ */
 let teams=[
   {name:'Team A',score:0,subs:[0,0,0]},
   {name:'Team B',score:0,subs:[0,0,0]},
@@ -190,7 +378,7 @@ function updateBeepPreview(){document.getElementById('beepPreview').textContent=
 function setStep(v,src){scoreStep=v;document.querySelectorAll('#stepBtns .btn').forEach(b=>b.classList.toggle('sel',+b.dataset.v===v&&src!=='c'));if(src!=='c')document.getElementById('customStep').value='';}
 function renderSoundBtns(){const c=document.getElementById('soundBtns');c.innerHTML='';Object.keys(SOUNDS).forEach(k=>{const b=document.createElement('button');b.className='btn'+(k===selectedSound?' sel':'');b.style.cssText='font-size:13px;padding:5px 13px;';b.textContent=k;b.onclick=()=>{selectedSound=k;renderSoundBtns();beepPreview();};c.appendChild(b);});}
 function renderStepBtns(){const c=document.getElementById('stepBtns');c.innerHTML='';STEPS.forEach(v=>{const b=document.createElement('button');b.className='btn'+(v===scoreStep?' sel':'');b.style.cssText='font-size:13px;padding:5px 13px;';b.textContent='+'+v;b.dataset.v=v;b.onclick=()=>setStep(v,'p');c.appendChild(b);});}
-function renderTeamMgmt(){const c=document.getElementById('teamMgmt');c.innerHTML='';teams.forEach((t,i)=>{const r=document.createElement('div');r.style.cssText='display:flex;align-items:center;gap:8px;';r.innerHTML=`<input type="text" value="${t.name}" maxlength="24" style="flex:1;font-size:13px;padding:6px 8px;border:1px solid #ccc;border-radius:8px;background:#fff;color:#1a1a18;outline:none;" oninput="teams[${i}].name=this.value;renderScoreCards();renderRanking();"/><button class="icobtn" style="width:30px;height:30px;font-size:15px;" onclick="removeTeam(${i})"${teams.length<=1?' disabled':''}><i class="ti ti-trash"></i></button>`;c.appendChild(r);});}
+function renderTeamMgmt(){const c=document.getElementById('teamMgmt');c.innerHTML='';teams.forEach((t,i)=>{const r=document.createElement('div');r.style.cssText='display:flex;align-items:center;gap:8px;';r.innerHTML=`<input type="text" value="${t.name}" maxlength="28" style="flex:1;font-size:13px;padding:6px 8px;border:1px solid #ccc;border-radius:8px;background:#fff;color:#1a1a18;outline:none;" oninput="teams[${i}].name=this.value;renderScoreCards();renderRanking();"/><button class="icobtn" style="width:30px;height:30px;font-size:15px;" onclick="removeTeam(${i})"${teams.length<=1?' disabled':''}><i class="ti ti-trash"></i></button>`;c.appendChild(r);});}
 function addTeam(){const inp=document.getElementById('newTeamInp');const name=inp.value.trim()||'Team '+(teams.length+1);teams.push({name,score:0,subs:Array(subCount).fill(0)});inp.value='';renderScoreCards();renderTeamMgmt();renderRanking();}
 function removeTeam(i){if(teams.length<=1)return;teams.splice(i,1);renderScoreCards();renderTeamMgmt();renderRanking();}
 function addMainScore(i,dir){if(subOn)return;teams[i].score=Math.max(0,teams[i].score+dir*scoreStep);document.getElementById('sc-'+i).textContent=teams[i].score;renderRanking();highlightLeader();}
@@ -204,7 +392,7 @@ function renderScoreCards(){
     let subHTML='';
     if(subOn){let rows='';for(let s=0;s<subCount;s++){rows+=`<div style="display:flex;align-items:center;justify-content:space-between;padding:3px 0;"><span style="font-size:11px;color:#999;">game ${s+1}</span><div style="display:flex;align-items:center;gap:4px;"><button class="sub-adj-btn" onclick="addSubScore(${i},${s},-1)">−</button><span style="font-size:13px;font-weight:500;width:18px;text-align:center;font-variant-numeric:tabular-nums;" id="sub-${i}-${s}">${t.subs[s]||0}</span><button class="sub-adj-btn" onclick="addSubScore(${i},${s},1)">+</button></div></div>`;}subHTML=`<div class="sub-section">${rows}</div>`;}
     let mainCtrl=subOn?`<p style="font-size:10px;color:#999;margin-top:2px;">auto-total</p>`:`<div class="adj-row"><button class="adj-btn" onclick="addMainScore(${i},-1)">−</button><button class="adj-btn" onclick="addMainScore(${i},1)">+</button></div>`;
-    d.innerHTML=`<input class="name-inp" value="${t.name}" maxlength="24" oninput="teams[${i}].name=this.value;renderTeamMgmt();renderRanking();"/><div class="score-main" id="sc-${i}">${t.score}</div>${mainCtrl}${subHTML}`;
+    d.innerHTML=`<input class="name-inp" value="${t.name}" maxlength="28" oninput="teams[${i}].name=this.value;renderTeamMgmt();renderRanking();"/><div class="score-main" id="sc-${i}">${t.score}</div>${mainCtrl}${subHTML}`;
     g.appendChild(d);
   });
 }
@@ -242,7 +430,8 @@ function startTimer(){if(running)return;iAudio();if(remaining<=0){totalSec=getTo
 function pauseTimer(){clearInterval(ticker);running=false;document.getElementById('startBtn').style.display='inline-flex';document.getElementById('pauseBtn').style.display='none';document.getElementById('statusMsg').textContent='paused';}
 function resetTimer(){clearInterval(ticker);running=false;totalSec=getTotalSec();remaining=totalSec;renderTimer();renderDots();document.getElementById('startBtn').style.display='inline-flex';document.getElementById('pauseBtn').style.display='none';document.getElementById('statusMsg').textContent='';document.getElementById('timerDisp').classList.remove('warn');}
 function toggleSettings(){const p=document.getElementById('settingsPanel');const open=p.style.display==='none';p.style.display=open?'block':'none';document.getElementById('settingsToggle').classList.toggle('sel',!open);if(open)renderTeamMgmt();}
-renderSoundBtns();renderStepBtns();renderScoreCards();renderRanking();totalSec=getTotalSec();remaining=totalSec;renderTimer();renderDots();updateBeepPreview();
+
+renderSoundBtns();renderStepBtns();totalSec=getTotalSec();remaining=totalSec;
 </script>
 </body>
 </html>
